@@ -27,7 +27,6 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/stenographer/base"
 	"github.com/google/stenographer/filecache"
-	"github.com/google/stenographer/indexfile"
 	"github.com/google/stenographer/query"
 	"github.com/google/stenographer/stats"
 	"golang.org/x/net/context"
@@ -50,7 +49,7 @@ var (
 type BlockFile struct {
 	name string
 	f    *filecache.CachedFile
-	i    *indexfile.IndexFile
+	//i    *indexfile.IndexFile
 	mu   sync.RWMutex // Stops Close() from invalidating a file before a current query is done with it.
 	done chan struct{}
 	size int64
@@ -60,10 +59,12 @@ type BlockFile struct {
 // which can be used to look up packets.
 func NewBlockFile(filename string, fc *filecache.Cache) (*BlockFile, error) {
 	v(1, "Blockfile opening: %q", filename)
-	i, err := indexfile.NewIndexFile(indexfile.IndexPathFromBlockfilePath(filename), fc)
-	if err != nil {
-		return nil, fmt.Errorf("could not open index for %q: %v", filename, err)
-	}
+	/*
+		i, err := indexfile.NewIndexFile(indexfile.IndexPathFromBlockfilePath(filename), fc)
+		if err != nil {
+			return nil, fmt.Errorf("could not open index for %q: %v", filename, err)
+		}
+	*/
 	f := fc.Open(filename)
 	s, err := f.Stat()
 	if err != nil {
@@ -71,8 +72,8 @@ func NewBlockFile(filename string, fc *filecache.Cache) (*BlockFile, error) {
 		return nil, fmt.Errorf("could not stat file %q: %v", filename, err)
 	}
 	return &BlockFile{
-		f:    f,
-		i:    i,
+		f: f,
+		//i:    i,
 		name: filename,
 		done: make(chan struct{}),
 		size: s.Size(),
@@ -120,13 +121,17 @@ func (b *BlockFile) Close() (err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	v(3, "Blockfile closing file descriptors: %q", b.name)
-	if e := b.i.Close(); e != nil {
-		err = e
-	}
+
+	/*
+		if e := b.i.Close(); e != nil {
+			err = e
+		}
+	*/
 	if e := b.f.Close(); e != nil {
 		err = e
 	}
-	b.i, b.f = nil, nil
+	//b.i, b.f = nil, nil
+	b.f = nil
 	return
 }
 
@@ -220,11 +225,11 @@ func (b *BlockFile) Positions(ctx context.Context, q query.Query) (base.Position
 // positionsLocked returns the positions in the blockfile of all packets matched by
 // the passed-in query.  b.mu must be locked.
 func (b *BlockFile) positionsLocked(ctx context.Context, q query.Query) (base.Positions, error) {
-	if b.i == nil || b.f == nil {
+	if b.f == nil {
 		// If we're closed, just return nothing.
 		return nil, nil
 	}
-	return q.LookupIn(ctx, b.i)
+	return q.LookupIn(ctx, nil)
 }
 
 // Lookup returns all packets in the blockfile matched by the passed-in query.
@@ -289,5 +294,5 @@ func (b *BlockFile) Lookup(ctx context.Context, q query.Query, out *base.PacketC
 func (b *BlockFile) DumpIndex(out io.Writer, start, finish []byte) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	b.i.Dump(out, start, finish)
+	//b.i.Dump(out, start, finish)
 }

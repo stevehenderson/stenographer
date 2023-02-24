@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -34,7 +35,8 @@ func processFile(infilepath string, outpath string) error {
 	}
 	defer f.Close()
 	limit := base.Limit{}
-	limit.Bytes = blk.Size()
+	limit.Bytes = math.MaxInt64
+	limit.Packets = math.MaxInt64
 	err = base.PacketsToFile(blk.AllPackets(), f, limit)
 	if err != nil {
 		zap.S().Error(err)
